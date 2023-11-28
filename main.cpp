@@ -1,11 +1,15 @@
 // main.cpp
 
-#include "Test.cpp"
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
+#define TINYOBJLOADER_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+
 #include "Setup.h"
 
 int SDL_main(int argc, char* argv[])
 {
-	//Test test;
 	try
 	{
 		Setup setup;
@@ -17,3 +21,4 @@ int SDL_main(int argc, char* argv[])
 	}
 	return 0;
 }
+

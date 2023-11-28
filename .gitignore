@@ -1,0 +1,13 @@
+x64/
+*.lib
+*.dwg
+VulkanAPI.png
+.vs/
+temp.cpp
+Test.cpp
+SDLExeption.cpp
+SDLExeption.h
+*.sln
+Vulkan.vcxproj.user
+Vulkan.vcxproj
+Vulkan.vcxproj.filters

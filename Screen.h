@@ -3,27 +3,36 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
+#include "VulkanLibrary.h"
+
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
+#include <gtx/hash.hpp>
+#include <stb_image.h>
+#include <tiny_obj_loader.h>
+
+#include "Shaders.h"
+#include <iostream>
+#include <fstream>
+#include <stdexcept>
+#include <algorithm>
+#include <chrono>
+#include <vector>
+#include <cstring>
+#include <cstdlib>
+#include <cstdint>
+#include <limits>
+#include <array>
+#include <optional>
+#include <set>
+#include <unordered_map>
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
+
 #else
 const bool enableValidationLayers = true;
 #endif
-
-
-#include "VulkanLibrary.h"
-#include "Shaders.h"
-#include <map>
-#include <optional>
-#include <set>
-#include <array>
-#include <limits> // Nesessary for std::numeric_limits
-#include <algorithm> // Nesessary for std::clamp
-#define GLM_FORCE_RADIANS
-#include <glm.hpp>
-#include <gtc/matrix_transform.hpp>
-#include <chrono>
-//#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 
 // The Struct that keeps the Families of Queues
@@ -62,7 +71,7 @@ VkResult createDebugUtilsMessengerEXT(VkInstance instance,
 // Shaders
 struct Vertex
 {
-	glm::vec2 pos;
+	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
@@ -83,14 +92,14 @@ struct Vertex
 		// Description of vertex attribute
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(Vertex, pos);
 		// Description of color attribute
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
-		// Description of texture atribute
+		// Description of texture attribute
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
@@ -98,7 +107,20 @@ struct Vertex
 
 		return attributeDescriptions;
 	}
+
+	bool operator==(const Vertex& other) const
+	{
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
 };
+
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
 
 // Descriptors
 struct UniformBufferObject
@@ -106,6 +128,7 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+	
 };
 
 
@@ -118,15 +141,9 @@ public:
 	const std::vector<const char*> DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 	// This constant to specifies the limit of simultaneous rendering of images
 	const int MAX_FRAMES_IN_FLIGHT = 2;
-	// Constant to specify the Vertex Shader Data
-	const std::vector<Vertex> vertices = {   // Vertices        //Colors          //Textures
-											{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-											{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-											{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-											{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-	};
-	// Constant to specify the indices to represent the contents of the index buffer
-	const std::vector<uint16_t> indices = { 0,1,2,2,3,0 };
+
+	const std::string MODEL_PATH = "models/gex_rot.obj";//viking_room.obj";
+	const std::string TEXTURE_PATH = "textures/sot.png";
 	
 	Screen();
 
@@ -257,22 +274,38 @@ public:
 	/// 15.1. Function to create Texture Image
 	void createTextureImage();
 	/// 15.2. Function to create image
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, 
+	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling,
 						VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	/// 15.3. Function to start recording of the command buffer
 	VkCommandBuffer beginSingleTimeCommands();
 	/// 15.4. Function to end recording of the command buffer
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue);
 	/// 15.5. Function to handle layout transitions
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	/// 15.6. Function to copy Buffer to Image
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	/// 15.7. Function to create the Texture Image View
 	void createTextureImageView();
 	/// 15.8 Abstract function to create imageViews
-	VkImageView createImageView(VkImage image, VkFormat format);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	/// 15.9. Function to create the Texture Sampler
 	void createTextureSampler();
+
+	// 16. Depth
+	/// 16.1. Function to set up resources
+	void createDepthResources();
+	/// 16.2. Function to take a list of candidate formats
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	/// 16.3. Function to find supported depth format
+	VkFormat findDepthFormat();
+	/// 16.4. Function to detect a available stencil component in VkFormat
+	bool hasStencilComponent(VkFormat format);
+
+	// 17. Models
+	/// 17.1. Function to load models
+	void loadModel();
+	/// 17.2. Function to change the start point of the model
+	void performInitialRotation();
 
 	VkDevice get_device() { return device; };
 
@@ -287,10 +320,9 @@ private:
 	VkInstance instanceVK;
 
 	std::vector<VkExtensionProperties> extensions;
-	//std::vector<const char*> extensionsSDL;
-
-	std::vector<VkLayerProperties> availableLayers;
 	VkDebugUtilsMessengerEXT debugMessenger;
+
+	std::vector<VkLayerProperties> availableLayers; 
 	
 	VkSurfaceKHR surface;
 	VkQueue presentQueue;
@@ -323,6 +355,9 @@ private:
 	VkCommandPool commandPool;
 	VkCommandPool commandPoolTransfer;
 
+
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
 	VkBuffer indexBuffer;
@@ -335,10 +370,16 @@ private:
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 
+	VkImage depthImage;
+	VkDeviceMemory depthMemory;
+	VkImageView depthImageView;
+
 	VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
 	VkSampler textureSampler;
+
+	uint32_t mipLevels;
 
 	std::vector<VkCommandBuffer> commandBuffer;
 	std::vector<VkCommandBuffer> commandBufferTransfer;
@@ -350,6 +391,7 @@ private:
 	bool framebufferResized;
 	uint32_t currentFrame;
 
+	bool hasRotated;
 
 };
 

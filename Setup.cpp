@@ -24,7 +24,7 @@ void Setup::gameLoop(Screen& screen)
 		input();
 	}
 	
-	//vkDeviceWaitIdle(screen.get_device());
+	vkDeviceWaitIdle(screen.get_device());
 	
 }
 
